@@ -13,7 +13,8 @@ class BertHTTPProxy(Process):
 
     def create_flask_app(self):
         try:
-            from flask import Flask, request
+            from flask import Flask, request,Response
+
             from flask_compress import Compress
             from flask_cors import CORS
             from flask_json import FlaskJSON, as_json, JsonError
@@ -54,10 +55,41 @@ class BertHTTPProxy(Process):
                 logger.error('error when handling HTTP request', exc_info=True)
                 raise JsonError(description=str(e), type=str(type(e).__name__))
 
+        @app.route('/invocations', methods=['POST'])
+        @as_json
+        def invocations():
+            """
+                a copy from encode_query to serve sagemarker
+            :return:
+            """
+            data = request.form if request.form else request.json
+            try:
+                logger.info('new request from %s' % request.remote_addr)
+                return {'id': data['id'],
+                        'result': bc.encode(data['texts'], is_tokenized=bool(
+                            data['is_tokenized']) if 'is_tokenized' in data else False)}
+
+            except Exception as e:
+                logger.error('error when handling HTTP request', exc_info=True)
+                raise JsonError(description=str(e), type=str(type(e).__name__))
+
+        @app.route('/ping', methods=['GET'])
+        def ping():
+
+            """Determine if the container is working and healthy. In this sample container, we declare
+            it healthy if we can load the model successfully."""
+
+            health = bc is not None  # You can insert a health check here
+
+            status = 200 if health else 404
+            return Response(response='\n', status=status, mimetype='application/json')
+
         CORS(app, origins=self.args.cors)
         FlaskJSON(app)
         Compress().init_app(app)
         return app
+
+
 
     def run(self):
         app = self.create_flask_app()
