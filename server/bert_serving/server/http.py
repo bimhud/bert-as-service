@@ -72,6 +72,8 @@ class BertHTTPProxy(Process):
             except Exception as e:
                 logger.error('error when handling HTTP request', exc_info=True)
                 raise JsonError(description=str(e), type=str(type(e).__name__))
+				
+				
 
         @app.route('/ping', methods=['GET'])
         def ping():
